@@ -354,14 +354,15 @@
   import { getDatabase, ref, set, get, onValue, push, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
   window._fb = { initializeApp, getDatabase, ref, set, get, onValue, push, remove };
   const config = {
-    apiKey: "AIzaSyA3DDLYvGKc7Ep6NTezKrQPZe4_-DwA3dM",
-    authDomain: "spring-break-2026-3df4b.firebaseapp.com",
-    databaseURL: "https://spring-break-2026-3df4b-default-rtdb.firebaseio.com",
-    projectId: "spring-break-2026-3df4b",
-    storageBucket: "spring-break-2026-3df4b.firebasestorage.app",
-    messagingSenderId: "580328422302",
-    appId: "1:580328422302:web:c38fda7079318723d5f48f"
-  };
+    apiKey: "AIzaSyAK2zwprD7dp70mK4lmi3vyzJJAGpdQ6UY",
+    authDomain: "cancun-2026.firebaseapp.com",
+    databaseURL: "https://cancun-2026-default-rtdb.firebaseio.com",
+    projectId: "cancun-2026",
+    storageBucket: "cancun-2026.firebasestorage.app",
+    messagingSenderId: "778879364526",
+    appId: "1:778879364526:web:d2e5dd8decd3a2d611ec3f",
+    measurementId: "G-8CLRG66XL1"
+};
   const app = initializeApp(config);
   window._db = getDatabase(app);
   document.dispatchEvent(new Event('db-ready'));
