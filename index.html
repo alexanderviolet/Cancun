@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>🌴 SpringBreak Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --orange: #ff6b35; --orange2: #ff8c42;
+    --bg: #080808; --card: rgba(255,255,255,0.04);
+    --border: rgba(255,255,255,0.08); --text: #ffffff;
+    --muted: #666; --dim: #333; --green: #00c896;
+  }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Space Mono', monospace;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    opacity: 0.4;
+  }
+
+  /* ── SCREENS (full viewport, no scroll) ── */
+  .screen {
+    display: none; position: fixed; inset: 0; z-index: 1;
+    flex-direction: column; overflow: hidden;
+  }
+  .screen.active { display: flex; }
+
+  /* ── AUTH: two full-height panels side by side, sliding ── */
+  #auth-screen {
+    overflow: hidden;
+    background: radial-gradient(ellipse at 50% 0%, rgba(255,107,53,0.14) 0%, transparent 65%);
+  }
+  .auth-slider {
+    display: flex; width: 200%; height: 100%;
+    transition: transform 0.4s cubic-bezier(0.4,0,0.2,1);
+  }
+  .auth-slider.show-signup { transform: translateX(-50%); }
+  .auth-panel {
+    width: 50%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px 28px; box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .logo-wrap { text-align: center; margin-bottom: 36px; flex-shrink: 0; }
+  .logo-emoji { font-size: 64px; display: block; animation: sway 3s ease-in-out infinite; }
+  @keyframes sway { 0%,100%{transform:rotate(-5deg)} 50%{transform:rotate(5deg)} }
+  .logo-title { font-family:'Black Han Sans',sans-serif; font-size:38px; letter-spacing:5px; line-height:1; margin-top:6px; }
+  .logo-title span { color: var(--orange); }
+  .logo-sub { color:var(--muted); font-size:10px; letter-spacing:4px; margin-top:5px; }
+
+  .auth-card {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+    border-radius: 20px; padding: 28px 24px; width: 100%; max-width: 340px;
+    backdrop-filter: blur(20px); flex-shrink: 0;
+  }
+  .auth-card h2 {
+    font-family:'Black Han Sans',sans-serif; font-size:20px; letter-spacing:2px;
+    margin-bottom:20px; color:var(--text);
+  }
+
+  input {
+    width:100%; padding:14px 16px; border-radius:10px;
+    border:1px solid var(--border); background:rgba(255,255,255,0.06);
+    color:var(--text); font-family:'Space Mono',monospace; font-size:14px;
+    outline:none; transition:border-color 0.2s; margin-bottom:12px;
+    -webkit-appearance:none; box-sizing:border-box;
+  }
+  input:focus { border-color: var(--orange); }
+  input::placeholder { color: var(--dim); }
+
+  .btn-primary {
+    width:100%; padding:15px; border-radius:10px; border:none;
+    background:linear-gradient(135deg,var(--orange),var(--orange2));
+    color:#fff; font-family:'Black Han Sans',sans-serif; font-size:17px;
+    letter-spacing:3px; cursor:pointer; transition:opacity 0.2s;
+    box-shadow:0 8px 28px rgba(255,107,53,0.3); display:block;
+  }
+  .btn-primary:active { opacity:0.85; transform:scale(0.99); }
+
+  .auth-switch {
+    text-align:center; margin-top:16px; color:var(--muted); font-size:12px;
+  }
+  .auth-switch a {
+    color:var(--orange); cursor:pointer; text-decoration:none; font-weight:700;
+  }
+  .error-msg { color:#ff4444; font-size:12px; text-align:center; margin-bottom:12px; }
+
+  /* ── APP SCREEN ── */
+  #app-screen { flex-direction: column; }
+  .header {
+    padding:18px 20px 14px; border-bottom:1px solid var(--border);
+    display:flex; justify-content:space-between; align-items:center;
+    flex-shrink:0; background:rgba(8,8,8,0.95); backdrop-filter:blur(20px);
+    z-index:10;
+  }
+  .header-logo { font-family:'Black Han Sans',sans-serif; font-size:18px; letter-spacing:3px; }
+  .header-logo span { color:var(--orange); }
+  .header-right { display:flex; align-items:center; gap:10px; }
+  .header-user { color:var(--muted); font-size:12px; }
+  .header-user b { color:var(--orange); }
+  .btn-sm {
+    background:none; border:1px solid var(--dim); color:var(--muted);
+    border-radius:6px; padding:5px 10px; cursor:pointer;
+    font-family:'Space Mono',monospace; font-size:10px; letter-spacing:1px;
+  }
+
+  /* pages fill remaining height and scroll internally */
+  .pages-wrap { flex:1; overflow:hidden; position:relative; }
+  .page {
+    display:none; position:absolute; inset:0;
+    overflow-y:auto; padding:20px 20px 90px;
+    animation: fadeUp 0.2s ease;
+  }
+  .page.active { display:block; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+  /* stats */
+  .stats-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+  .stat-card {
+    background:linear-gradient(135deg,rgba(255,107,53,0.15),rgba(255,140,66,0.05));
+    border:1px solid rgba(255,107,53,0.25); border-radius:16px; padding:18px; text-align:center;
+  }
+  .stat-card.full { grid-column:1/-1; padding:22px; }
+  .stat-number { font-family:'Black Han Sans',sans-serif; font-size:48px; color:var(--orange); line-height:1; }
+  .stat-card.full .stat-number { font-size:64px; }
+  .stat-label { color:var(--muted); font-size:9px; letter-spacing:3px; margin-top:4px; text-transform:uppercase; }
+  .stat-roast { color:var(--orange2); font-size:13px; margin-top:8px; font-weight:700; }
+  .vom-card {
+    background:linear-gradient(135deg,rgba(0,200,80,0.1),rgba(0,200,80,0.03));
+    border:1px solid rgba(0,200,80,0.2); border-radius:16px; padding:18px; text-align:center;
+  }
+  .vom-number { font-family:'Black Han Sans',sans-serif; font-size:48px; color:var(--green); line-height:1; }
+  .vom-label { color:var(--muted); font-size:9px; letter-spacing:3px; margin-top:4px; text-transform:uppercase; }
+
+  .section-label { color:var(--muted); font-size:10px; letter-spacing:3px; text-transform:uppercase; margin-bottom:12px; margin-top:18px; }
+
+  .day-selector { display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; margin-bottom:4px; scrollbar-width:none; }
+  .day-selector::-webkit-scrollbar { display:none; }
+  .day-pill {
+    flex-shrink:0; padding:6px 14px; border-radius:20px; border:1px solid var(--border);
+    background:var(--card); color:var(--muted); font-family:'Space Mono',monospace;
+    font-size:11px; cursor:pointer; transition:all 0.15s; white-space:nowrap;
+  }
+  .day-pill.active { border-color:var(--orange); background:rgba(255,107,53,0.12); color:var(--text); }
+
+  .drink-item {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 14px; margin-bottom:8px; border-radius:10px;
+    background:var(--card); border:1px solid var(--border); gap:8px;
+  }
+  .drink-item-left { font-size:14px; flex:1; min-width:0; }
+  .drink-item-note { color:#555; font-size:11px; margin-top:2px; font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .drink-item-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .drink-item-time { color:#444; font-size:11px; }
+  .remove-btn {
+    background:rgba(255,68,68,0.12); border:1px solid rgba(255,68,68,0.25);
+    color:#ff4444; border-radius:6px; padding:4px 8px; cursor:pointer;
+    font-size:12px; line-height:1; transition:all 0.15s;
+  }
+  .empty-state { text-align:center; color:#333; padding:40px 0; font-size:13px; line-height:2; }
+
+  /* log page */
+  .drink-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+  .drink-option {
+    padding:15px 10px; border-radius:12px; border:1px solid var(--border);
+    background:var(--card); color:var(--muted); font-family:'Space Mono',monospace;
+    font-size:13px; cursor:pointer; transition:all 0.15s; text-align:center;
+  }
+  .drink-option.selected { border-color:var(--orange); background:rgba(255,107,53,0.12); color:var(--text); font-weight:700; }
+  .vom-btn {
+    width:100%; padding:15px; border-radius:10px; border:1px solid rgba(0,200,80,0.3);
+    background:rgba(0,200,80,0.08); color:var(--green);
+    font-family:'Black Han Sans',sans-serif; font-size:17px;
+    letter-spacing:3px; cursor:pointer; transition:all 0.2s; margin-top:10px;
+  }
+  .vom-btn:active { background:rgba(0,200,80,0.2); transform:scale(0.99); }
+
+  /* leaderboard */
+  .lb-tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .lb-tab {
+    padding:7px 14px; border-radius:20px; border:1px solid var(--border);
+    background:var(--card); color:var(--muted); font-family:'Space Mono',monospace;
+    font-size:11px; cursor:pointer; transition:all 0.15s; letter-spacing:1px;
+  }
+  .lb-tab.active { border-color:var(--orange); background:rgba(255,107,53,0.12); color:var(--text); }
+  .lb-item {
+    display:flex; align-items:center; gap:14px;
+    padding:14px 16px; margin-bottom:10px; border-radius:14px;
+    background:var(--card); border:1px solid var(--border);
+  }
+  .lb-item.me { background:rgba(255,107,53,0.1); border-color:rgba(255,107,53,0.3); }
+  .lb-rank { font-size:22px; width:32px; text-align:center; flex-shrink:0; }
+  .lb-info { flex:1; }
+  .lb-name { font-weight:700; font-size:15px; text-transform:capitalize; }
+  .lb-name .you-tag { color:var(--orange); font-size:10px; margin-left:6px; font-weight:400; }
+  .lb-sub { color:#444; font-size:11px; margin-top:3px; }
+  .lb-count { text-align:right; }
+  .lb-count-num { font-family:'Black Han Sans',sans-serif; font-size:28px; }
+  .lb-count-unit { color:#444; font-size:9px; letter-spacing:2px; }
+
+  /* bottom nav */
+  .bottom-nav {
+    position:fixed; bottom:0; left:0; right:0;
+    background:rgba(8,8,8,0.97); backdrop-filter:blur(24px);
+    border-top:1px solid var(--border);
+    display:flex; justify-content:space-around;
+    padding:10px 0 20px; z-index:100;
+  }
+  .nav-btn {
+    background:none; border:none; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    color:var(--dim); transition:color 0.15s; padding:0 16px;
+  }
+  .nav-btn.active { color:var(--orange); }
+  .nav-btn .nav-icon { font-size:22px; }
+  .nav-btn .nav-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:2px; font-weight:700; }
+
+  #toast {
+    position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-80px);
+    color:#fff; padding:12px 24px; border-radius:100px;
+    font-weight:700; font-size:13px; letter-spacing:1px; z-index:999;
+    white-space:nowrap; transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  #toast.orange { background:var(--orange); box-shadow:0 8px 32px rgba(255,107,53,0.5); }
+  #toast.green { background:#00a86b; box-shadow:0 8px 32px rgba(0,200,100,0.4); }
+  #toast.show { transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- AUTH SCREEN: two panels, slide between them -->
+<div id="auth-screen" class="screen active">
+  <div class="auth-slider" id="auth-slider">
+
+    <!-- PANEL 1: LOGIN -->
+    <div class="auth-panel">
+      <div class="logo-wrap">
+        <span class="logo-emoji">🌴</span>
+        <div class="logo-title">SPRING<span>BREAK</span></div>
+        <div class="logo-sub">DRINK TRACKER 2026</div>
+      </div>
+      <div class="auth-card">
+        <h2>WELCOME BACK</h2>
+        <input type="text" id="login-name" placeholder="your name" autocomplete="off" autocorrect="off" autocapitalize="none" />
+        <input type="password" id="login-pin" placeholder="4-digit PIN" maxlength="4" inputmode="numeric" />
+        <p id="login-error" class="error-msg" style="display:none"></p>
+        <button class="btn-primary" onclick="handleLogin()">LET'S GO →</button>
+        <div class="auth-switch">new here? <a onclick="slideToSignup()">sign up →</a></div>
+      </div>
+    </div>
+
+    <!-- PANEL 2: SIGN UP -->
+    <div class="auth-panel">
+      <div class="logo-wrap">
+        <span class="logo-emoji">🌴</span>
+        <div class="logo-title">SPRING<span>BREAK</span></div>
+        <div class="logo-sub">DRINK TRACKER 2026</div>
+      </div>
+      <div class="auth-card">
+        <h2>JOIN THE CREW</h2>
+        <input type="text" id="signup-name" placeholder="pick a name" autocomplete="off" autocorrect="off" autocapitalize="none" />
+        <input type="password" id="signup-pin" placeholder="pick a 4-digit PIN" maxlength="4" inputmode="numeric" />
+        <p id="signup-error" class="error-msg" style="display:none"></p>
+        <button class="btn-primary" onclick="handleSignup()">CREATE ACCOUNT →</button>
+        <div class="auth-switch">already have an account? <a onclick="slideToLogin()">log in →</a></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+<div id="app-screen" class="screen">
+  <div class="header">
+    <div class="header-logo">SPRING<span>BREAK</span></div>
+    <div class="header-right">
+      <span class="header-user">hey, <b id="header-username"></b></span>
+      <button class="btn-sm" onclick="logout()">out</button>
+    </div>
+  </div>
+
+  <div class="pages-wrap">
+    <!-- HOME -->
+    <div id="page-home" class="page active">
+      <div class="stats-row">
+        <div class="stat-card full">
+          <div class="stat-number" id="my-count-total">0</div>
+          <div class="stat-label">DRINKS ALL TIME</div>
+          <div class="stat-roast" id="my-roast"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="my-count-today">0</div>
+          <div class="stat-label">TODAY</div>
+        </div>
+        <div class="vom-card">
+          <div class="vom-number" id="my-vom-count">0</div>
+          <div class="vom-label">🤮 VOM COUNTER</div>
+        </div>
+      </div>
+      <div class="day-selector" id="day-selector-home"></div>
+      <div class="section-label" id="home-feed-label" style="margin-top:12px">Today's Drinks</div>
+      <div id="my-feed"></div>
+    </div>
+
+    <!-- LOG -->
+    <div id="page-log" class="page">
+      <div class="section-label" style="margin-top:0;margin-bottom:14px">WHAT ARE YOU HAVING?</div>
+      <div class="drink-grid" id="drink-grid"></div>
+      <input type="text" id="log-note" placeholder="add a note — where? who bought it?" style="margin-bottom:12px" />
+      <button class="btn-primary" onclick="logDrink()">+ LOG DRINK</button>
+      <button class="vom-btn" onclick="logVom()">🤮 LOG VOM</button>
+    </div>
+
+    <!-- LEADERBOARD -->
+    <div id="page-board" class="page">
+      <div style="margin-bottom:14px">
+        <div style="font-family:'Black Han Sans',sans-serif;font-size:22px;letter-spacing:2px">LEADERBOARD</div>
+        <div style="color:#444;font-size:11px;margin-top:4px;letter-spacing:1px">live · updates instantly</div>
+      </div>
+      <div class="lb-tabs">
+        <button class="lb-tab active" id="lb-tab-all" onclick="switchLbTab('all')">ALL TIME</button>
+        <button class="lb-tab" id="lb-tab-today" onclick="switchLbTab('today')">TODAY</button>
+        <button class="lb-tab" id="lb-tab-vom" onclick="switchLbTab('vom')">🤮 VOMS</button>
+      </div>
+      <div id="leaderboard"></div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <button class="nav-btn active" id="nav-home" onclick="switchPage('home')">
+      <span class="nav-icon">🍻</span><span class="nav-label">MY BAR</span>
+    </button>
+    <button class="nav-btn" id="nav-log" onclick="switchPage('log')">
+      <span class="nav-icon">➕</span><span class="nav-label">LOG</span>
+    </button>
+    <button class="nav-btn" id="nav-board" onclick="switchPage('board')">
+      <span class="nav-icon">🏆</span><span class="nav-label">BOARD</span>
+    </button>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, set, get, onValue, push, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+  window._fb = { initializeApp, getDatabase, ref, set, get, onValue, push, remove };
+  const config = {
+    apiKey: "AIzaSyA3DDLYvGKc7Ep6NTezKrQPZe4_-DwA3dM",
+    authDomain: "spring-break-2026-3df4b.firebaseapp.com",
+    databaseURL: "https://spring-break-2026-3df4b-default-rtdb.firebaseio.com",
+    projectId: "spring-break-2026-3df4b",
+    storageBucket: "spring-break-2026-3df4b.firebasestorage.app",
+    messagingSenderId: "580328422302",
+    appId: "1:580328422302:web:c38fda7079318723d5f48f"
+  };
+  const app = initializeApp(config);
+  window._db = getDatabase(app);
+  document.dispatchEvent(new Event('db-ready'));
+</script>
+
+<script>
+const DRINKS = ["🍺 Beer","🍷 Wine","🥃 Shot","🍹 Cocktail","🥤 Seltzer","🍺 Shotgun"];
+let db, currentUser, unsubscribe, selectedDay = null, lbTab = 'all', allUsersData = {};
+
+function todayKey() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function formatDayLabel(key) {
+  const today = todayKey();
+  if (key === today) return 'Today';
+  const d = new Date(key + 'T12:00:00');
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return days[d.getDay()] + ' ' + months[d.getMonth()] + ' ' + d.getDate();
+}
+
+document.addEventListener('db-ready', () => {
+  db = window._db;
+  const grid = document.getElementById('drink-grid');
+  DRINKS.forEach((d, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'drink-option' + (i === 0 ? ' selected' : '');
+    btn.textContent = d; btn.dataset.drink = d;
+    btn.onclick = () => {
+      document.querySelectorAll('.drink-option').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    };
+    grid.appendChild(btn);
+  });
+  const savedUser = sessionStorage.getItem('sb_user');
+  if (savedUser) { currentUser = savedUser; enterApp(); }
+});
+
+// ── AUTH ──
+function slideToSignup() {
+  document.getElementById('auth-slider').classList.add('show-signup');
+  document.getElementById('login-error').style.display = 'none';
+}
+function slideToLogin() {
+  document.getElementById('auth-slider').classList.remove('show-signup');
+  document.getElementById('signup-error').style.display = 'none';
+}
+window.slideToSignup = slideToSignup;
+window.slideToLogin = slideToLogin;
+
+async function handleLogin() {
+  const name = document.getElementById('login-name').value.trim().toLowerCase();
+  const pin = document.getElementById('login-pin').value.trim();
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  if (!name || pin.length < 4) { errEl.textContent = 'Need a name + 4-digit PIN'; errEl.style.display='block'; return; }
+  const { ref, get } = window._fb;
+  const snap = await get(ref(db, 'users/' + name));
+  if (!snap.exists()) { errEl.textContent = 'User not found — sign up?'; errEl.style.display='block'; return; }
+  if (snap.val().pin !== pin) { errEl.textContent = 'Wrong PIN 🚫'; errEl.style.display='block'; return; }
+  currentUser = name;
+  sessionStorage.setItem('sb_user', name);
+  enterApp();
+  toast('Back at it, ' + name + '! 🤙', 'orange');
+}
+window.handleLogin = handleLogin;
+
+async function handleSignup() {
+  const name = document.getElementById('signup-name').value.trim().toLowerCase();
+  const pin = document.getElementById('signup-pin').value.trim();
+  const errEl = document.getElementById('signup-error');
+  errEl.style.display = 'none';
+  if (!name || pin.length < 4) { errEl.textContent = 'Need a name + 4-digit PIN'; errEl.style.display='block'; return; }
+  const { ref, get, set } = window._fb;
+  const snap = await get(ref(db, 'users/' + name));
+  if (snap.exists()) { errEl.textContent = 'Name taken — try another'; errEl.style.display='block'; return; }
+  await set(ref(db, 'users/' + name), { pin, joined: Date.now() });
+  currentUser = name;
+  sessionStorage.setItem('sb_user', name);
+  enterApp();
+  toast('Welcome to the crew, ' + name + '! 🎉', 'orange');
+}
+window.handleSignup = handleSignup;
+
+function enterApp() {
+  document.getElementById('header-username').textContent = currentUser;
+  selectedDay = todayKey();
+  showScreen('app');
+  subscribeData();
+}
+
+function logout() {
+  if (unsubscribe) unsubscribe();
+  sessionStorage.removeItem('sb_user');
+  currentUser = null;
+  slideToLogin();
+  showScreen('auth');
+}
+window.logout = logout;
+
+// ── DATA ──
+function subscribeData() {
+  const { ref, onValue } = window._fb;
+  const off = onValue(ref(db, 'users'), (snap) => {
+    allUsersData = snap.val() || {};
+    renderHome(allUsersData);
+    renderLeaderboard(allUsersData);
+  });
+  unsubscribe = off;
+}
+
+async function logDrink() {
+  const selected = document.querySelector('.drink-option.selected');
+  const type = selected ? selected.dataset.drink : DRINKS[0];
+  const note = document.getElementById('log-note').value.trim();
+  const { ref, push } = window._fb;
+  await push(ref(db, 'users/' + currentUser + '/drinks'), { type, note, time: Date.now(), day: todayKey() });
+  document.getElementById('log-note').value = '';
+  toast(type + ' logged! 🎉', 'orange');
+  switchPage('home');
+}
+window.logDrink = logDrink;
+
+async function logVom() {
+  const { ref, push } = window._fb;
+  await push(ref(db, 'users/' + currentUser + '/voms'), { time: Date.now(), day: todayKey() });
+  toast('🤮 vom logged... RIP', 'green');
+  switchPage('home');
+}
+window.logVom = logVom;
+
+async function removeDrink(drinkId) {
+  const { ref, remove } = window._fb;
+  await remove(ref(db, 'users/' + currentUser + '/drinks/' + drinkId));
+  toast('drink removed', 'orange');
+}
+window.removeDrink = removeDrink;
+
+// ── RENDER HOME ──
+function renderHome(allData) {
+  const me = allData[currentUser] || {};
+  const drinks = me.drinks ? Object.entries(me.drinks) : [];
+  const voms = me.voms ? Object.values(me.voms) : [];
+  const today = todayKey();
+
+  document.getElementById('my-count-total').textContent = drinks.length;
+  document.getElementById('my-count-today').textContent = drinks.filter(([,d]) => d.day === today).length;
+  document.getElementById('my-vom-count').textContent = voms.length;
+  document.getElementById('my-roast').textContent = getRoast(drinks.length, voms.length);
+
+  const allDays = [...new Set(drinks.map(([,d]) => d.day).filter(Boolean))].sort().reverse();
+  if (!allDays.includes(today)) allDays.unshift(today);
+  if (!selectedDay || !allDays.includes(selectedDay)) selectedDay = today;
+
+  document.getElementById('day-selector-home').innerHTML = allDays.map(k =>
+    '<button class="day-pill' + (k === selectedDay ? ' active' : '') + '" onclick="selectDay(\'' + k + '\')">' + formatDayLabel(k) + '</button>'
+  ).join('');
+
+  document.getElementById('home-feed-label').textContent = formatDayLabel(selectedDay) + "'s Drinks";
+
+  const dayDrinks = drinks.filter(([,d]) => d.day === selectedDay).sort(([,a],[,b]) => b.time - a.time);
+  const feed = document.getElementById('my-feed');
+  if (!dayDrinks.length) {
+    feed.innerHTML = '<div class="empty-state">no drinks on ' + formatDayLabel(selectedDay).toLowerCase() + '<br>' + (selectedDay === today ? 'what are you waiting for? 🏖️' : 'rest day 😇') + '</div>';
+    return;
+  }
+  feed.innerHTML = dayDrinks.map(([id, d]) =>
+    '<div class="drink-item"><div class="drink-item-left"><div>' + d.type + '</div>' +
+    (d.note ? '<div class="drink-item-note">"' + d.note + '"</div>' : '') +
+    '</div><div class="drink-item-right"><span class="drink-item-time">' + timeAgo(d.time) + '</span>' +
+    '<button class="remove-btn" onclick="removeDrink(\'' + id + '\')">✕</button>' +
+    '</div></div>'
+  ).join('');
+}
+
+function selectDay(key) { selectedDay = key; renderHome(allUsersData); }
+window.selectDay = selectDay;
+
+// ── RENDER LEADERBOARD ──
+function renderLeaderboard(allData) {
+  const today = todayKey();
+  let board;
+  if (lbTab === 'all') {
+    board = Object.entries(allData).map(([name, data]) => {
+      const drinks = data.drinks ? Object.values(data.drinks) : [];
+      const last = drinks.length ? Math.max(...drinks.map(d => d.time)) : null;
+      return { name, count: drinks.length, last, sub: getRoast(drinks.length, 0) };
+    }).sort((a,b) => b.count - a.count);
+  } else if (lbTab === 'today') {
+    board = Object.entries(allData).map(([name, data]) => {
+      const drinks = data.drinks ? Object.values(data.drinks).filter(d => d.day === today) : [];
+      return { name, count: drinks.length, last: null, sub: drinks.length + ' today' };
+    }).sort((a,b) => b.count - a.count);
+  } else {
+    board = Object.entries(allData).map(([name, data]) => {
+      const voms = data.voms ? Object.values(data.voms) : [];
+      const last = voms.length ? Math.max(...voms.map(v => v.time)) : null;
+      return { name, count: voms.length, last, sub: voms.length === 0 ? 'stomach of steel 💪' : 'last: ' + timeAgo(last) };
+    }).sort((a,b) => b.count - a.count);
+  }
+  const medals = ['🥇','🥈','🥉'];
+  const colors = ['#ffd700','#c0c0c0','#cd7f32'];
+  const isVom = lbTab === 'vom';
+  document.getElementById('leaderboard').innerHTML = !board.length
+    ? '<div class="empty-state">nothing yet 👀</div>'
+    : board.map((u, i) =>
+        '<div class="lb-item ' + (u.name === currentUser ? 'me' : '') + '">' +
+        '<div class="lb-rank">' + (medals[i] || '#'+(i+1)) + '</div>' +
+        '<div class="lb-info"><div class="lb-name">' + u.name +
+        (u.name===currentUser ? '<span class="you-tag">(you)</span>' : '') + '</div>' +
+        '<div class="lb-sub">' + u.sub + '</div></div>' +
+        '<div class="lb-count"><div class="lb-count-num" style="color:' + (isVom ? 'var(--green)' : (colors[i]||'var(--orange)')) + '">' + u.count + '</div>' +
+        '<div class="lb-count-unit">' + (isVom ? 'VOMS' : 'DRINKS') + '</div></div></div>'
+      ).join('');
+}
+
+function switchLbTab(tab) {
+  lbTab = tab;
+  ['all','today','vom'].forEach(t => document.getElementById('lb-tab-' + t).classList.toggle('active', t === tab));
+  renderLeaderboard(allUsersData);
+}
+window.switchLbTab = switchLbTab;
+
+// ── UTILS ──
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(name + '-screen').classList.add('active');
+}
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('nav-' + page).classList.add('active');
+}
+window.switchPage = switchPage;
+
+let toastTimer;
+function toast(msg, color) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = color; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+function timeAgo(ts) {
+  const m = Math.floor((Date.now() - ts) / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return m + 'm ago';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ago';
+  return Math.floor(h/24) + 'd ago';
+}
+function getRoast(n, voms) {
+  if (voms > 0) return 'been through it 🤮';
+  if (n === 0) return 'sober sally 😇';
+  if (n <= 2) return 'just warming up 🌅';
+  if (n <= 5) return 'feeling it 🌊';
+  if (n <= 8) return 'in the zone 🔥';
+  if (n <= 12) return 'legend status 🏆';
+  return 'call an uber 🚨';
+}
+</script>
+</body>
+</html>
